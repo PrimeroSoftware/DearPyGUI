@@ -1,16 +1,7 @@
 import dearpygui.dearpygui as dpg
-from screeninfo import get_monitors
+from myfunctions.myscreen import getPositionX
 
-def obtenerPosicionVentana():
-    monitores = get_monitors()
-    print(f"Cantidad de monitores: {len(monitores)}")
-    print(monitores[0].width)
-
-    if len(monitores) > 1:
-        posicion_en_x= monitores[0].width + 100
-    else:
-        posicion_en_x = 100
-    return posicion_en_x
+from myfunctions import test_function
 
 def click_button(sender, app_data):
     print("Button clicked!", sender)
@@ -30,7 +21,7 @@ dpg.create_viewport(
     height=300, 
     min_width=400,
     min_height=200,
-    x_pos=obtenerPosicionVentana(),
+    x_pos=getPositionX(),
     )
 
 # Ventana que depende del marco de ejecucion
