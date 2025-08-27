@@ -9,6 +9,15 @@ import sqlite3
 # Configuración de la base de datos
 DB_NAME = "mydatabase.db"
 
+tiposdoc = [
+    (1, 'DNI', 'Documento Nacional de Identidad'),
+    (2, 'LC', 'Libreta Cívica'),
+    (3, 'LE', 'Libreta de Enrolamiento'),
+    (4, 'CI', 'Cédula de Identidad'),
+    (5, 'PAS', 'Pasaporte')
+]
+
+defaultcbo = f"{tiposdoc[0][1]} - {tiposdoc[0][2]}"
 
 def create_table():
     # Crea la tabla 'personas' en la base de datos si no existe.
@@ -164,9 +173,9 @@ def main():
     dpg.create_viewport(
         title='Titulo de la ventana principal',
         width=600,
-        height=300,
+        height=400,
         min_width=400,
-        min_height=200,
+        min_height=400,
         x_pos=getPositionX(),
         resizable=False,
         small_icon="logo.png",
@@ -178,8 +187,28 @@ def main():
         label="CRUD de Personas",
         no_close=True,
         width=dpg.get_viewport_width(),
-        height=200,
+        height=400,
         ):
+        
+        with dpg.menu_bar():
+            with dpg.menu(label="Archivo"):
+                dpg.add_menu_item(label="Nuevo", callback=lambda: print("Nuevo archivo"))
+                dpg.add_menu_item(label="Abrir", callback=lambda: print("Abrir archivo"))
+                dpg.add_separator()
+                dpg.add_menu_item(label="Salir", callback=lambda: dpg.stop_dearpygui())
+            
+            with dpg.menu(label="Operaciones"):
+                dpg.add_menu_item(label="Alta", callback=lambda: print("Nueva Alta"), user_data="Alta")
+                dpg.add_menu_item(label="Baja", callback=lambda: print("Nueva Baja"), user_data="Baja")
+                dpg.add_menu_item(label="Modificación", callback=lambda: print("Nueva Modificacion"), user_data="Modificación")
+            
+            with dpg.menu(label="Ver"):
+                dpg.add_menu_item(label="Actualizar Tabla", callback=lambda: update_table())
+            
+            with dpg.menu(label="Ayuda"):
+                dpg.add_menu_item(label="Acerca de", callback=lambda: print("Gestor de Personas v1.0"))
+                dpg.add_menu_item(label="Manual", callback=lambda: print("Seleccione una operación del menú"))
+                
         with dpg.group(horizontal=True):
             dpg.add_button(label="Alta de Persona", callback=create_view)
             dpg.add_button(label="Baja de Persona", callback=delete_view)
@@ -191,7 +220,30 @@ def main():
             dpg.add_table_column(label="Nombre")
             dpg.add_table_column(label="Apellido")
             dpg.add_table_column(label="Edad")
-                    
+            
+        # Con los Options Button o Ratio Button
+        dpg.add_text("Tipo de Documento:")
+        for tipo in tiposdoc:
+            dpg.add_radio_button([f"{tipo[1]} - {tipo[2]}"], tag=f"radio_{tipo[0]}", callback=lambda: print("Tipo Doc"))
+            
+        # Con el Combo Box
+        dpg.add_text("Tipo de Documento (Combo):")
+        
+        
+        # Dependiendo de se genere la lista de valores del combo se necesita crear una lista 
+        # aparte como el caso 1 o sino una variable aparte como el caso 2
+
+        # Caso 1: Crear una lista aparte
+        listdetipo = []
+        for tipo in tiposdoc:
+            listdetipo.append(f"{tipo[1]} - {tipo[2]}")
+        print(listdetipo)
+        dpg.add_combo(listdetipo, label="Tipo de Documento", tag="tipo_doc_combo", 
+                                 width=250, default_value=listdetipo[0],
+                                 callback=lambda: print(f"Tipo Doc Combo {dpg.get_value("tipo_doc_combo")}"))
+        
+        # Caso 2: Crear una variable aparte
+        dpg.add_combo([f"{tipo[1]} - {tipo[2]}" for tipo in tiposdoc], tag="combo_tiposdoc", default_value=defaultcbo, callback=lambda: print(dpg.get_value("combo_tiposdoc")))
         
     with dpg.window(
         label="Agregar Persona",
