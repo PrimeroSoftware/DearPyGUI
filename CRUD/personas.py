@@ -3,7 +3,7 @@
 
 
 import dearpygui.dearpygui as dpg
-from myfunctions.myscreen import getPositionX
+from lib.myfunctions.myscreen import getPositionX
 import sqlite3
 
 # Configuración de la base de datos
