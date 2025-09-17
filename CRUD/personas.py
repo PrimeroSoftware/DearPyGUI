@@ -3,8 +3,22 @@
 
 
 import dearpygui.dearpygui as dpg
+import sys
+import os
 from lib.myfunctions.myscreen import getPositionX
 import sqlite3
+from datetime import datetime
+
+# Importar librerías para PDF
+try:
+    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib import colors
+    from reportlab.lib.units import inch
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
 
 # Configuración de la base de datos
 DB_NAME = "mydatabase.db"
@@ -87,6 +101,130 @@ def search_person(idsearch):
     persona = c.fetchone()
     cnx.close()
     return persona
+
+def generate_pdf_report():
+    """Genera un reporte PDF con todas las personas de la base de datos"""
+    if not PDF_AVAILABLE:
+        print("Error: ReportLab no está instalado. Instale con: pip install reportlab")
+        return False
+    
+    try:
+        # Obtener datos de personas
+        personas = get_personas()
+        
+        if not personas:
+            print("No hay personas en la base de datos para generar el reporte")
+            return False
+        
+        # Crear nombre de archivo con timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"reporte_personas_{timestamp}.pdf"
+        
+        # Crear el documento PDF
+        doc = SimpleDocTemplate(filename, pagesize=A4)
+        elements = []
+        
+        # Estilos
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=18,
+            textColor=colors.darkblue,
+            spaceAfter=30,
+            alignment=1  # Centrado
+        )
+        
+        # Título del reporte
+        title = Paragraph("REPORTE DE PERSONAS", title_style)
+        elements.append(title)
+        
+        # Información del reporte
+        info_style = ParagraphStyle(
+            'InfoStyle',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.gray,
+            spaceAfter=20
+        )
+        
+        fecha_reporte = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        info = Paragraph(f"Fecha de generación: {fecha_reporte}<br/>Total de registros: {len(personas)}", info_style)
+        elements.append(info)
+        
+        # Crear tabla con los datos
+        headers = ['ID', 'Nombre', 'Apellido', 'Edad']
+        data = [headers]
+        
+        # Agregar datos de personas
+        for persona in personas:
+            data.append([str(persona[0]), persona[1], persona[2], str(persona[3])])
+        
+        # Crear la tabla
+        table = Table(data, colWidths=[0.8*inch, 2*inch, 2*inch, 1*inch])
+        
+        # Estilo de la tabla
+        table.setStyle(TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            
+            # Cuerpo de la tabla
+            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            
+            # Bordes
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('LINEBELOW', (0, 0), (-1, 0), 2, colors.darkblue),
+            
+            # Alternar colores de filas
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.lightgrey, colors.white]),
+        ]))
+        
+        elements.append(table)
+        
+        # Agregar pie de página
+        elements.append(Spacer(1, 30))
+        footer_style = ParagraphStyle(
+            'FooterStyle',
+            parent=styles['Normal'],
+            fontSize=8,
+            textColor=colors.gray,
+            alignment=1  # Centrado
+        )
+        footer = Paragraph("Generado por Sistema CRUD de Personas - DearPyGUI", footer_style)
+        elements.append(footer)
+        
+        # Construir el PDF
+        doc.build(elements)
+        
+        print(f"PDF generado exitosamente: {filename}")
+        
+        # Intentar abrir el PDF automáticamente
+        try:
+            if os.name == 'nt':  # Windows
+                os.startfile(filename)
+            elif os.name == 'posix':  # macOS y Linux
+                os.system(f"xdg-open {filename}")
+        except:
+            print(f"PDF guardado como: {filename}")
+        
+        return True
+        
+    except Exception as e:
+        print(f"Error al generar PDF: {str(e)}")
+        return False
+
+def print_personas_callback(sender, app_data):
+    """Callback para el botón de imprimir personas"""
+    success = generate_pdf_report()
+    if success:
+        # Opcional: mostrar mensaje de éxito en la interfaz
+        pass
 
 # Funciones de Alta de Personas
 
@@ -195,6 +333,8 @@ def main():
                 dpg.add_menu_item(label="Nuevo", callback=lambda: print("Nuevo archivo"))
                 dpg.add_menu_item(label="Abrir", callback=lambda: print("Abrir archivo"))
                 dpg.add_separator()
+                dpg.add_menu_item(label="Imprimir PDF", callback=print_personas_callback)
+                dpg.add_separator()
                 dpg.add_menu_item(label="Salir", callback=lambda: dpg.stop_dearpygui())
             
             with dpg.menu(label="Operaciones"):
@@ -212,7 +352,8 @@ def main():
         with dpg.group(horizontal=True):
             dpg.add_button(label="Alta de Persona", callback=create_view)
             dpg.add_button(label="Baja de Persona", callback=delete_view)
-            dpg.add_button(label="Modificar Persona", callback=update_view)   
+            dpg.add_button(label="Modificar Persona", callback=update_view)
+            dpg.add_button(label="Imprimir PDF", callback=print_personas_callback, tag="btn_print_pdf")   
 
         # Mostramos los datos de las personas que tenemos cargadas
         with dpg.table(header_row=True, resizable=True, borders_innerH=True, borders_outerH=True, tag="table_personas"):
