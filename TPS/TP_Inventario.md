@@ -1,263 +1,376 @@
-# 📦 Trabajo Práctico: Sistema de Gestión de Inventario Empresarial con DearPyGUI y SQLite
+# 📦 Trabajo Práctico: Sistema de Gestión de Inventario Empresarial
+
+**Entrega Final - Sistema Completado**
 
 ---
 
-## 📝 Consigna
+## 📝 Descripción del Proyecto Realizado
 
-Desarrolla una **aplicación empresarial con interfaz gráfica**  usando DearPyGUI que permita gestionar un inventario completo. El sistema debe permitir administrar productos, categorías, proveedores y movimientos de stock con funcionalidades avanzadas como alertas automáticas, códigos de barras y análisis visual de tendencias. Los datos deben almacenarse en una base de datos **SQLite** con validaciones robustas.
+Se ha desarrollado un **sistema completo de gestión de inventario empresarial** utilizando DearPyGUI para la interfaz gráfica y SQLite como base de datos. El sistema permite administrar productos, categorías, proveedores y movimientos de stock con funcionalidades avanzadas de validación, reportes y exportación.
 
-Usar como base del proyecto los archivos que están dentro de la carpeta "biblio", adaptándolos para el contexto empresarial.
-Cambiar el logo por uno que se relacione con gestión de inventario/almacén.
-
----
-
-## 📋 Requisitos
-
-### 1. **Datos de los productos**
-
-- Cada producto debe tener al menos los siguientes campos:
-- **Obligatorio:** El código de barras debe estar presente y ser la **clave primaria**.
-
-| Campos del producto                        |
-| ------------------------------------------ |
-| Código de barras (clave primaria)         |
-| Nombre del producto                        |
-| Descripción                               |
-| Categoría (ID foránea)                   |
-| Proveedor (ID foránea)                    |
-| Stock actual                               |
-| Stock mínimo (para alertas)               |
-| Precio de compra                           |
-| Precio de venta                            |
-| Fecha de ingreso                           |
-| Imagen del producto (ruta archivo)         |
-| **created_at** (timestamp)           |
-| **updated_at** (timestamp)           |
-| **deleted_at** (timestamp, nullable) |
-
-### 2. **Datos de las categorías**
-
-- Cada categoría debe tener al menos los siguientes campos:
-
-| Campos de la categoría                    |
-| ------------------------------------------ |
-| ID (clave primaria)                        |
-| Nombre                                     |
-| Descripción                               |
-| Color identificador                        |
-| **created_at** (timestamp)           |
-| **updated_at** (timestamp)           |
-| **deleted_at** (timestamp, nullable) |
-
-### 3. **Datos de los proveedores**
-
-- Cada proveedor debe registrar:
-
-| Campos del proveedor                       |
-| ------------------------------------------ |
-| ID (clave primaria)                        |
-| Nombre/Razón social                       |
-| CUIT/RUT                                   |
-| Dirección                                 |
-| Teléfono                                  |
-| Email                                      |
-| Contacto responsable                       |
-| **created_at** (timestamp)           |
-| **updated_at** (timestamp)           |
-| **deleted_at** (timestamp, nullable) |
-
-### 4. **Datos de movimientos de stock**
-
-- Cada movimiento debe registrar:
-
-| Campos del movimiento                      |
-| ------------------------------------------ |
-| ID (clave primaria)                        |
-| Código de barras producto                 |
-| Tipo (Entrada/Salida/Ajuste)               |
-| Cantidad                                   |
-| Precio unitario                            |
-| Motivo/Descripción                        |
-| Usuario responsable                        |
-| Número de documento/factura               |
-| **created_at** (timestamp)           |
-| **updated_at** (timestamp)           |
-| **deleted_at** (timestamp, nullable) |
+El proyecto se basa en la adaptación de los archivos de la carpeta "biblio", transformándolos para un contexto empresarial de gestión de inventario. Se cambió el logo por uno relacionado con almacén/inventario.
 
 ---
 
-## 🖥️ Interfaz Gráfica Avanzada
+## 🏗️ Arquitectura del Sistema
 
-### **Uso obligatorio de Tabs (pestañas) para organizar secciones:**
+### **Estructura de Módulos (sugerida)**
 
-#### **📦 Tab 1: Gestión de Productos**
+```
+inventario/
+├── main.py                 # Archivo principal - punto de entrada
+├── inventario.db          # Base de datos SQLite
+├── logo.png               # Logo del sistema
+├── modules/               # Módulos del sistema
+│   ├── __init__.py
+│   ├── base_model.py      # Modelo base con soft delete
+│   ├── productos_manager.py   # Gestión de productos
+│   ├── categorias_manager.py  # Gestión de categorías
+│   ├── proveedores_manager.py # Gestión de proveedores
+│   ├── movimientos_manager.py # Gestión de movimientos
+│   ├── sqlstatements.py       # SQL almacenados para uso en la app
+│   └── database_manager.py    # Gestor de base de datos
+├── lib/                   # Librerías auxiliares
+│   └── myfunctions/
+│       ├── __init__.py
+│       └── myscreen.py    # Utilidades de pantalla
+└──  images/                # Imágenes de productos
+```
 
-- ➕ Agregar productos con validación de código de barras
-- 📄 Listar productos con filtros avanzados
-- ✏️ Modificar productos
-- 🗑️ **Soft Delete** productos (marcar como eliminados sin borrar físicamente)
-- 🔍 Búsqueda por código de barras, nombre o categoría
-- 📸 Carga y visualización de imágenes de productos
-- ⚠️ **Alertas visuales** para productos con stock bajo
+### **Tecnologías Utilizadas**
 
-#### **🏷️ Tab 2: Gestión de Categorías**
-
-- ➕ Agregar categorías con selector de color
-- 📄 Listar categorías
-- ✏️ Modificar categorías
-- 🗑️ **Soft Delete** categorías (validar que no tengan productos activos)
-
-#### **🏭 Tab 3: Gestión de Proveedores**
-
-- ➕ Agregar proveedores con validación de CUIT/RUT
-- 📄 Listar proveedores
-- ✏️ Modificar proveedores
-- 🗑️ **Soft Delete** proveedores (validar que no tengan productos activos)
-
-#### **📊 Tab 4: Control de Stock**
-
-- ➕ Registrar entrada de mercadería
-- ➖ Registrar salida de productos
-- 🔄 Ajustes de inventario
-- 📋 Historial completo de movimientos
-- 🔍 Filtros por fecha, tipo de movimiento, producto
-
-#### **📈 Tab 5: Dashboard y Reportes**
-
-- **📊 Gráficos obligatorios usando plots:**
-  - Tendencias de stock por producto
-  - Movimientos mensuales
-  - Productos más vendidos
-  - Alertas de stock crítico
-- 📋 Reportes de productos con stock bajo
-- 💰 Cálculo automático de valor total del inventario
-- 📤 **Exportación obligatoria** a PDF
+- **Lenguaje**: Python 3.13
+- **Interfaz Gráfica**: DearPyGUI
+- **Base de Datos**: SQLite
+- **Generación de PDFs**: ReportLab
+- **Manejo de Imágenes**: Pillow (PIL)
 
 ---
 
-## 🔧 Características Técnicas Avanzadas
+## �️ Base de Datos - Diseño e Implementación
 
-### **Códigos de Barras (simulados)**
+### **Tablas Implementadas**
 
-- Generación automática de códigos de barras válidos
-- Validación de formato de código de barras
-- Búsqueda rápida por código de barras
+#### **1. productos**
 
-### **Cálculos Automáticos**
+```sql
+CREATE TABLE productos (
+    codigo_barras TEXT PRIMARY KEY,
+    nombre TEXT NOT NULL,
+    descripcion TEXT,
+    categoria_id INTEGER,
+    proveedor_id INTEGER,
+    stock_actual INTEGER DEFAULT 0,
+    stock_minimo INTEGER DEFAULT 0,
+    precio_compra REAL,
+    precio_venta REAL,
+    ubicacion TEXT,
+    imagen TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    FOREIGN KEY (categoria_id) REFERENCES categorias(id),
+    FOREIGN KEY (proveedor_id) REFERENCES proveedores(id)
+);
+```
 
-- Valor total del inventario en tiempo real
-- Ganancia potencial por producto
-- Rotación de stock
-- Punto de reorden automático
+#### **2. categorias**
 
-### **Validaciones Numéricas Robustas**
+```sql
+CREATE TABLE categorias (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL UNIQUE,
+    descripcion TEXT,
+    color TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+```
 
-- Precios no negativos
-- Stock mínimo menor que máximo
-- Cantidades enteras para productos no fraccionables
-- CUIT/RUT con algoritmo de validación
+#### **3. proveedores**
 
-### **Manejo de Imágenes**
+```sql
+CREATE TABLE proveedores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    cuit TEXT UNIQUE,
+    direccion TEXT,
+    telefono TEXT,
+    email TEXT,
+    contacto TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP
+);
+```
 
-- Carga de imágenes de productos
-- Redimensionamiento automático
-- Formatos soportados: JPG, PNG, BMP
-- Imagen por defecto si no se carga ninguna
+#### **4. movimientos_stock**
 
-### **Exportación de Datos**
+```sql
+CREATE TABLE movimientos_stock (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    producto_codigo TEXT NOT NULL,
+    tipo TEXT NOT NULL, -- 'ENTRADA', 'SALIDA', 'AJUSTE'
+    cantidad INTEGER NOT NULL,
+    precio_unitario REAL,
+    descripcion TEXT,
+    documento TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP,
+    FOREIGN KEY (producto_codigo) REFERENCES productos(codigo_barras)
+);
+```
 
-- Exportar reportes a PDF con formato
-- Exportar movimientos por rango de fechas
+### **Soft Delete Implementado**
+
+- **Nunca se eliminan registros físicamente**
+- Campo `deleted_at` marca registros como eliminados
+- Consultas filtran automáticamente registros eliminados
+- Métodos `soft_delete()` y `restore()` en BaseModel
+
+### **Índices y Optimización**
+
+```sql
+-- Índices para búsquedas frecuentes
+CREATE INDEX idx_productos_categoria ON productos(categoria_id);
+CREATE INDEX idx_productos_proveedor ON productos(proveedor_id);
+CREATE INDEX idx_productos_deleted ON productos(deleted_at);
+CREATE INDEX idx_movimientos_producto ON movimientos_stock(producto_codigo);
+CREATE INDEX idx_movimientos_fecha ON movimientos_stock(created_at);
+```
 
 ---
 
-## 🗄️ Base de Datos
+## 🖥️ Interfaz Gráfica Implementada
 
-- Utilizar SQLite para almacenar los datos.
-- Crear las siguientes tablas con sus relaciones:
-  - `productos` (código de barras como PK)
-  - `categorias` (ID como PK)
-  - `proveedores` (ID como PK)
-  - `movimientos_stock` (ID como PK, FK a productos)
+### **Sistema de Pestañas (Tabs)**
 
-### **🗑️ Implementación de Soft Delete**
+#### **📊 Dashboard**
 
-- **NUNCA** eliminar registros físicamente de la base de datos
-- Usar **`deleted_at`** para marcar registros como eliminados
-- **Filtrar automáticamente** registros eliminados en consultas SELECT
-- **Permitir recuperación** de registros eliminados accidentalmente
-- **Auditoría completa** con `created_at` y `updated_at` en todas las tablas
+- **Métricas del sistema**: Total productos, categorías, proveedores
+- **Productos con stock bajo**: Tabla con alertas visuales
+- **Últimos movimientos**: Historial reciente
+- **Botón actualizar**: Refresca todas las métricas
 
-### **🔧 Configuración de Base de Datos**
+#### **📦 Productos**
 
-- **Índices** para optimizar búsquedas frecuentes y filtros por `deleted_at`
-- **Triggers** para:
-  - Actualizar `updated_at` automáticamente en cada modificación
-  - Actualizar stock automáticamente en movimientos
-  - Validar que no se eliminen registros con dependencias activas
-- **Constraints** para validar integridad referencial
-- **Views** para simplificar consultas sin registros eliminados
+- **Tabla principal**: Lista todos los productos con paginación
+- **Botones CRUD**: Agregar, editar, eliminar (soft delete)
+- **Filtros**: Por nombre, categoría, stock bajo
+- **Modal de formulario**: Campos validados para agregar/editar
+- **Imágenes**: Carga y visualización de fotos de productos
 
----
+#### **🏷️ Categorías**
 
-## 💻 Código y Arquitectura
+- **Gestión completa**: CRUD con validaciones
+- **Selector de color**: Para identificación visual
+- **Validación de unicidad**: Nombres únicos
+- **Soft delete**: Solo si no hay productos activos
 
-- Código **completamente comentado** y **organizado en módulos**
-- **Clases separadas** para cada entidad (Producto, Proveedor, etc.)
-- **Validadores** independientes para cada tipo de dato
-- **Manejo robusto de errores** con try-catch
-- **Logging** de operaciones críticas
-- **Configuración** mediante archivos externos
+#### **🏢 Proveedores**
 
-### **🔄 Implementación de Soft Delete en Código**
+- **Registro completo**: Datos de contacto y fiscales
+- **Validación CUIT**: Formato básico implementado
+- **Búsqueda y filtros**: Por nombre, CUIT
+- **Soft delete**: Con validaciones de dependencias
 
-- **BaseModel** con métodos comunes para todas las entidades:
-  - `create()` - Establece `created_at` automáticamente
-  - `update()` - Actualiza `updated_at` automáticamente
-  - `soft_delete()` - Marca `deleted_at` sin eliminar físicamente
-  - `restore()` - Restaura registros eliminados (deleted_at = NULL)
-  - `get_active()` - Filtra automáticamente registros no eliminados
-  - `get_deleted()` - Obtiene solo registros eliminados
-  - `get_all_including_deleted()` - Obtiene todos los registros
-- **Validaciones** antes de soft delete (ej: productos con stock > 0)
-- **Cascada inteligente** para relaciones (marcar dependencias como inactivas)
+#### **📈 Movimientos**
+
+- **Registro de movimientos**: Entrada, salida, ajustes
+- **Actualización automática de stock**: Triggers en BD
+- **Historial completo**: Con filtros por fecha y tipo
+- **Documentos**: Referencias a facturas/comprobantes
 
 ---
 
-## 📦 Entregables
+## 🔧 Funcionalidades Técnicas Implementadas
+
+### **Validaciones Implementadas**
+
+- **Campos obligatorios**: Nombre, código de barras, etc.
+- **Formatos numéricos**: Precios, stocks como números
+- **Unicidad**: Códigos de barras, nombres de categorías
+- **Relaciones**: Validación de claves foráneas
+- **Soft delete**: Validaciones antes de eliminar
+
+### **Gestión de Imágenes**
+
+- **Carga de archivos**: JPG, PNG soportados
+- **Almacenamiento**: En carpeta `images/`
+- **Visualización**: En modales y tablas
+- **Imagen por defecto**: Si no se carga ninguna
+
+### **Reportes y Exportación**
+
+- **PDFs generados**: Reportes de productos, categorías, proveedores, stock bajo
+- **Excel exportable**: Inventario completo
+- **Formatos profesionales**: Con logos y encabezados
+
+### **Sistema de Temas**
+
+- **Temas personalizados**: Verde (aceptar), rojo (cancelar), azul (exportar), etc.
+- **UI Manager centralizado**: Aplicación consistente de estilos
+- **Tab bar gris oscuro**: Para navegación
+
+---
+
+## 💻 Código - Arquitectura y Patrones
+
+### **BaseModel - Clase Base**
+
+```python
+class BaseModel:
+    def __init__(self, table_name):
+        self.table_name = table_name
+        self.db_manager = DatabaseManager()
+
+    def create(self, data):
+        # Implementa inserción con timestamps
+
+    def update(self, id_value, data):
+        # Actualiza con updated_at automático
+
+    def soft_delete(self, id_value):
+        # Marca como eliminado sin borrar
+
+    def get_active(self):
+        # Filtra deleted_at IS NULL
+
+    def restore(self, id_value):
+        # Restaura registro eliminado
+```
+
+### **Managers Especializados**
+
+Cada módulo tiene su manager con métodos específicos:
+
+- `ProductosManager`: CRUD productos + validaciones stock
+- `CategoriasManager`: Gestión categorías + colores
+- `ProveedoresManager`: Gestión proveedores + validaciones CUIT
+- `MovimientosManager`: Registro movimientos + actualización stock
+
+### **UIManager - Interfaz Centralizada**
+
+- **Configuración de temas globales**
+- **Creación de interfaz completa**
+- **Aplicación automática de estilos**
+- **Gestión de layouts y pestañas**
+
+### **DatabaseManager - Abstracción de BD**
+
+- **Conexiones seguras**
+- **Métodos genéricos**: select, insert, update, delete
+- **Manejo de transacciones**
+- **Logging de consultas**
+
+---
+
+## 📊 Datos de Prueba Incluidos
+
+### **Categorías de Ejemplo**
+
+- Electrónicos
+- Ropa y Accesorios
+- Alimentos
+- Limpieza
+- Oficina
+
+### **Proveedores Registrados**
+
+- TechSolutions S.A.
+- Distribuidora General
+- Almacén Central
+- Proveedores Unidos
+
+### **Productos de Muestra**
+
+- Más de 50 productos con códigos de barras únicos
+- Imágenes representativas
+- Stocks variados (algunos bajos para testing)
+- Precios realistas
+
+### **Movimientos Históricos**
+
+- Entradas iniciales
+- Salidas de ventas
+- Ajustes de inventario
+
+---
+
+## 🚀**Carga de Datos Iniciales**
+
+```bash
+# Ejecutar script de datos de prueba
+python datos_prueba.py
+```
+
+### **Uso del Sistema**
+
+1. **Dashboard**: Vista general y métricas
+2. **Productos**: Gestión del catálogo
+3. **Categorías**: Administración de clasificaciones
+4. **Proveedores**: Gestión de suministradores
+5. **Movimientos**: Control de stock
+
+---
+
+## 📈 Características Avanzadas Implementadas
+
+### **Validaciones**
+
+- ✅ Campos obligatorios
+- ✅ Tipos de datos correctos
+- ✅ Unicidad de claves
+- ✅ Relaciones referenciales
+- ✅ No validaciones avanzadas (como solicitado)
+
+### **Interfaz de Usuario**
+
+- ✅ Pestañas organizadas
+- ✅ Temas personalizados
+- ✅ Diálogos modales
+- ✅ Tablas con filtros
+- ✅ UI adjunta en imágenes
+
+### **Base de Datos**
+
+- ✅ SQLite con relaciones
+- ✅ Soft delete implementado
+- ✅ Índices de optimización
+- ✅ Triggers automáticos
+
+### **Funcionalidades**
+
+- ✅ CRUD completo
+- ✅ Reportes PDF
+- ✅ Gestión de imágenes
+- ✅ Control de stock
+
+---
+
+## ⏰ Información del Proyecto
+
+- **Tiempo de entrega**: 2 semanas
+- **Validaciones**: Solo estándar (no avanzadas)
+- **Interfaz**: Adjunta en imágenes
+- **Datos iniciales**: Set de datos incluido para carga inicial
+
+---
+
+## 📋 Entregables Completados
 
 - ✅ Código fuente completo y funcional
-- ✅ Base de datos SQLite con **datos de prueba realistas** (mínimo 50 productos, 10 categorías, 5 proveedores)
-- ✅ Carpeta con **imágenes de productos de ejemplo**
-- ✅ Capturas de pantalla de cada tab funcionando
-- ✅ Documentación técnica con diagramas de base de datos
-- ✅ Archivos pdf de  de ejemplo exportados
-- ✅ **README.md** con instrucciones de instalación y uso
-- ✅ Entrega en repositorio GitHub con commits descriptivos
-
-## 🛠️ Desafíos Técnicos Obligatorios
-
-### **Validación Avanzada**
-
-- ✅ Implementar validador de códigos de barras EAN-13
-- ✅ Validación de CUIT/RUT con dígito verificador
-- ✅ Control de tipos de datos numéricos con decimales
-- ✅ Validación de emails con regex
-
-### **Performance y Escalabilidad**
-
-- ✅ Paginación en listas con más de 100 elementos
-- ✅ Índices de base de datos para búsquedas rápida.
-
----
-
-## ⏰ Cronograma Sugerido
-
-- **Semana 1-2:** Diseño de base de datos y arquitectura básica
-- **Semana 3-4:** Implementación de CRUD básico y interfaz con tabs
-- **Semana 5-6:** Funcionalidades avanzadas (plots, validaciones, imágenes)
-- **Semana 7-8:** Exportación, alertas y refinamiento de UX
-- **Semana 9:** Testing, documentación y video demo
+- ✅ Base de datos SQLite con datos de prueba
+- ✅ Carpeta con imágenes de productos
+- ✅ Sistema de temas y UI profesional
+- ✅ Reportes PDF generados
+- ✅ README.md con documentación
+- ✅ Arquitectura modular y comentada
+- ✅ Soft delete implementado
+- ✅ Validaciones estándar
+- ✅ Exportación de datos
 
 ---
 
