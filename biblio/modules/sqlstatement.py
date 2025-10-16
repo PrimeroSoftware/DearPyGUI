@@ -131,6 +131,15 @@ WHERE p.nombre_usuario LIKE ?
 ORDER BY p.fecha_prestamo DESC
 """
 
+SEARCH_PRESTAMOS_BY_TITLE = """
+SELECT p.id, p.isbn, p.nombre_usuario, p.fecha_prestamo, p.fecha_devolucion, p.estado,
+       l.titulo
+FROM prestamos p
+LEFT JOIN libros l ON p.isbn = l.isbn
+WHERE l.titulo LIKE ?
+ORDER BY p.fecha_prestamo DESC
+"""
+
 # Verificaciones para préstamos
 CHECK_LIBRO_DISPONIBLE = """
 SELECT isbn, titulo, estado
@@ -190,6 +199,12 @@ WHERE l.isbn = ?
 UPDATE_LIBRO = '''
 UPDATE libros
 SET titulo = ?, autor_id = ?, año_publicacion = ?, editorial = ?, genero = ?, estado = ?
+WHERE isbn = ?
+'''
+
+UPDATE_LIBRO_INFO = '''
+UPDATE libros
+SET titulo = ?, autor_id = ?, año_publicacion = ?, editorial = ?, genero = ?
 WHERE isbn = ?
 '''
 

@@ -163,7 +163,7 @@ class BibliotecaApp:
     
     def registrar_devolucion(self, prestamo_id, isbn):
         """Delegar al módulo de préstamos"""
-        self.prestamos_manager.devolver_libro(prestamo_id, isbn)
+        self.prestamos_manager.devolver_libro(sender=prestamo_id, app_data=isbn)
     
     def cargar_historial_prestamos(self, sender=None, app_data=None):
         """Delegar al módulo de préstamos"""
@@ -226,19 +226,19 @@ class BibliotecaApp:
             with dpg.tab_bar():
                 # ===== PESTAÑA DE AUTORES =====
                 # Crear interfaz de autores usando el módulo
-                tab_autores = dpg.add_tab(label="👨‍💼 Autores")
+                tab_autores = dpg.add_tab(label="Autores")
                 self.autores_manager.crear_interfaz_autores(tab_autores)
                 
                 # Crear interfaz de libros usando el módulo
-                tab_libros = dpg.add_tab(label="📚 Libros")
+                tab_libros = dpg.add_tab(label="Libros")
                 self.libros_manager.crear_interfaz_libros(tab_libros)
                 
                 # Crear interfaz de préstamos usando el módulo
-                tab_prestamos = dpg.add_tab(label="📋 Préstamos")
+                tab_prestamos = dpg.add_tab(label="Préstamos")
                 self.prestamos_manager.crear_interfaz_prestamos(tab_prestamos)
                 
                 # ===== PESTAÑA DE HISTORIAL =====
-                with dpg.tab(label="📊 Historial"):
+                with dpg.tab(label="Historial"):
                     dpg.add_text("Historial de Préstamos", color=(0, 255, 0))
                     dpg.add_separator()
                     
@@ -257,7 +257,7 @@ class BibliotecaApp:
                         dpg.add_table_column(label="Estado", width_fixed=True, init_width_or_weight=80)
                 
                 # ===== PESTAÑA DE REPORTES =====
-                with dpg.tab(label="📈 Reportes"):
+                with dpg.tab(label="Reportes"):
                     dpg.add_text("Libros Más Prestados", color=(0, 255, 0))
                     dpg.add_separator()
                     

@@ -89,15 +89,27 @@ class LibrosManager(DatabaseManager):
                     dpg.add_text(libro[0])  # isbn
                     dpg.add_text(libro[1])  # titulo
                     dpg.add_text(libro[7] or "Sin autor")  # nombre_autor
-                    dpg.add_text(str(libro[3]) if libro[3] else "")  # año
-                    dpg.add_text(libro[4] or "")  # editorial
                     dpg.add_text(libro[5] or "")  # genero
-                    dpg.add_text(libro[6] or "")  # estado
+                    # Estado con color
+                    estado = libro[6] or ""
+                    if estado.lower() == "prestado":
+                        dpg.add_text(estado, color=(255, 0, 0))  # Rojo
+                    elif estado.lower() == "disponible":
+                        dpg.add_text(estado, color=(0, 255, 0))  # Verde
+                    else:
+                        dpg.add_text(estado)
                     with dpg.group(horizontal=True):
                         dpg.add_button(
+                            label=f"Editar##edit_libro_{libro[0]}", 
+                            callback=self.editar_libro,
+                            user_data=libro[0],
+                            width=55
+                        )
+                        dpg.add_button(
                             label=f"Eliminar##del_libro_{libro[0]}", 
-                            callback=lambda s, a, isbn=libro[0]: self.eliminar_libro(isbn),
-                            width=80
+                            callback=self.eliminar_libro,
+                            user_data=libro[0],
+                            width=65
                         )
             
             print(f"✅ Cargados {len(libros)} libros correctamente")
@@ -107,8 +119,9 @@ class LibrosManager(DatabaseManager):
             print(f"❌ Error al cargar libros: {e}")
             self._set_status(f"Error: {e}")
     
-    def eliminar_libro(self, isbn):
+    def eliminar_libro(self, sender=None, app_data=None, user_data=None):
         """Eliminar un libro (solo si no tiene préstamos activos)"""
+        isbn = user_data if user_data is not None else app_data
         try:
             # Verificar si tiene préstamos activos
             count_result = self.execute_query(sql.CHECK_LIBRO_HAS_ACTIVE_LOANS, (isbn,))
@@ -133,6 +146,111 @@ class LibrosManager(DatabaseManager):
             
         except Exception as e:
             self._set_status(f"Error al eliminar libro: {e}")
+    
+    def editar_libro(self, sender=None, app_data=None, user_data=None):
+        """Cargar datos del libro en el formulario para edición"""
+        isbn = user_data if user_data is not None else app_data
+        print(f"🔍 Editando libro con ISBN: {isbn} (tipo: {type(isbn)})")
+        
+        try:
+            # Obtener datos del libro
+            libro = self.execute_query(sql.SELECT_LIBRO_BY_ISBN, (isbn,))
+            
+            if not libro:
+                self._set_status(f"Error: Libro con ISBN '{isbn}' no encontrado")
+                return
+            
+            libro = libro[0]
+            
+            # Cargar datos en los campos del formulario
+            dpg.set_value("input_libro_isbn", libro[0])
+            dpg.configure_item("input_libro_isbn", enabled=False)  # Deshabilitar ISBN en edición
+            dpg.set_value("input_libro_titulo", libro[1])
+            dpg.set_value("input_libro_año", str(libro[4]) if libro[4] else "")
+            dpg.set_value("input_libro_editorial", libro[5] or "")
+            dpg.set_value("input_libro_genero", libro[6] or "")
+            
+            # Seleccionar el autor en el combo
+            autor_id = libro[2]
+            if autor_id:
+                autor_info = self.execute_query(sql.SELECT_AUTOR_BY_ID, (autor_id,))
+                if autor_info:
+                    autor = autor_info[0]
+                    autor_nombre = f"{autor[1]} {autor[2]}"  # nombre apellido
+                    dpg.set_value("combo_autor_libro", autor_nombre)
+            
+            # Cambiar el botón a modo edición
+            dpg.set_item_label("btn_agregar_libro", "Actualizar Libro")
+            dpg.set_item_callback("btn_agregar_libro", self.actualizar_libro)
+            
+            # Mostrar botón de cancelar
+            dpg.show_item("btn_cancelar_edicion")
+            
+            # Guardar el ISBN que se está editando
+            self.libro_editando = isbn
+            
+            self._set_status(f"Editando libro: {libro[1]}")
+            
+        except Exception as e:
+            self._set_status(f"Error al cargar libro para edición: {e}")
+    
+    def actualizar_libro(self, sender=None, app_data=None):
+        """Actualizar un libro existente"""
+        isbn = dpg.get_value("input_libro_isbn")
+        titulo = dpg.get_value("input_libro_titulo")
+        combo_selection = dpg.get_value("combo_autor_libro")
+        año = dpg.get_value("input_libro_año")
+        editorial = dpg.get_value("input_libro_editorial")
+        genero = dpg.get_value("input_libro_genero")
+        
+        if not isbn or not titulo:
+            self._set_status("Error: ISBN y título son obligatorios")
+            return
+        
+        # Obtener ID del autor seleccionado
+        autor_id = self.autores_manager.obtener_id_autor_seleccionado(combo_selection, "combo_autor_libro")
+        
+        try:
+            rows_affected = self.execute_command(
+                sql.UPDATE_LIBRO_INFO, 
+                (titulo, autor_id, año, editorial, genero, isbn)
+            )
+            
+            if rows_affected > 0:
+                # Limpiar campos y resetear a modo agregar
+                self._reset_formulario_libro()
+                
+                self._set_status(f"Libro '{titulo}' actualizado exitosamente")
+                self.cargar_libros()
+                
+                # Notificar a otros módulos si es necesario
+                if hasattr(self, 'on_libro_added'):
+                    self.on_libro_added()
+            else:
+                self._set_status("Error al actualizar libro")
+                
+        except Exception as e:
+            self._set_status(f"Error al actualizar libro: {e}")
+    
+    def _reset_formulario_libro(self):
+        """Resetear el formulario a modo agregar"""
+        dpg.set_value("input_libro_isbn", "")
+        dpg.set_value("input_libro_titulo", "")
+        dpg.set_value("combo_autor_libro", "Sin autor")
+        dpg.set_value("input_libro_año", "")
+        dpg.set_value("input_libro_editorial", "")
+        dpg.set_value("input_libro_genero", "")
+        
+        dpg.configure_item("input_libro_isbn", enabled=True)  # Re-habilitar ISBN
+        
+        dpg.set_item_label("btn_agregar_libro", "Agregar Libro")
+        dpg.set_item_callback("btn_agregar_libro", self.agregar_libro)
+        
+        # Ocultar botón de cancelar
+        dpg.hide_item("btn_cancelar_edicion")
+        
+        if hasattr(self, 'libro_editando'):
+            delattr(self, 'libro_editando')
     
     def obtener_libros_disponibles_para_combo(self):
         """Obtener lista de libros disponibles para usar en combo boxes"""
@@ -211,8 +329,8 @@ class LibrosManager(DatabaseManager):
         
         # Botón de control
         with dpg.group(horizontal=True, parent=parent_tab):
-            dpg.add_button(label="🔄 Recargar Libros", callback=self.cargar_libros)
-            dpg.add_button(label="🔄 Actualizar Autores", callback=self._actualizar_combo_autores_libros)
+            dpg.add_button(label="Recargar Libros", callback=self.cargar_libros)
+            dpg.add_button(label="Actualizar Autores", callback=self._actualizar_combo_autores_libros)
         dpg.add_separator(parent=parent_tab)
         
         # Formulario para agregar libros
@@ -225,7 +343,8 @@ class LibrosManager(DatabaseManager):
                 dpg.add_input_text(label="Año", tag="input_libro_año", width=200)
                 dpg.add_input_text(label="Editorial", tag="input_libro_editorial", width=200)
                 dpg.add_input_text(label="Género", tag="input_libro_genero", width=200)
-                dpg.add_button(label="Agregar Libro", callback=self.agregar_libro)
+                dpg.add_button(label="Agregar Libro", tag="btn_agregar_libro", callback=self.agregar_libro)
+                dpg.add_button(label="Cancelar Edición", tag="btn_cancelar_edicion", callback=self._reset_formulario_libro, show=False)
                 dpg.add_text("", tag="status_libros", color=(255, 255, 0))
             
             # Lista de libros
@@ -235,8 +354,6 @@ class LibrosManager(DatabaseManager):
                     dpg.add_table_column(label="ISBN")
                     dpg.add_table_column(label="Título")
                     dpg.add_table_column(label="Autor")
-                    dpg.add_table_column(label="Año")
-                    dpg.add_table_column(label="Editorial")
                     dpg.add_table_column(label="Género")
                     dpg.add_table_column(label="Estado")
                     dpg.add_table_column(label="Acciones")

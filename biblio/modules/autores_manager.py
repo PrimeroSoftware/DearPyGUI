@@ -84,9 +84,16 @@ class AutoresManager(DatabaseManager):
                     dpg.add_text(autor[4] or "")
                     with dpg.group(horizontal=True):
                         dpg.add_button(
+                            label=f"Editar##edit_autor_{autor[0]}", 
+                            callback=self.editar_autor,
+                            user_data=autor[0],
+                            width=55
+                        )
+                        dpg.add_button(
                             label=f"Eliminar##del_autor_{autor[0]}", 
-                            callback=lambda s, a, u=autor[0]: self.eliminar_autor(u),
-                            width=80
+                            callback=self.eliminar_autor,
+                            user_data=autor[0],
+                            width=65
                         )
             
             print(f"✅ Cargados {len(autores)} autores correctamente")
@@ -96,8 +103,9 @@ class AutoresManager(DatabaseManager):
             print(f"❌ Error al cargar autores: {e}")
             self._set_status(f"Error: {e}")
     
-    def eliminar_autor(self, autor_id):
+    def eliminar_autor(self, sender=None, app_data=None, user_data=None):
         """Eliminar un autor (solo si no tiene libros asociados)"""
+        autor_id = user_data if user_data is not None else app_data
         try:
             # Verificar si tiene libros asociados
             count_result = self.execute_query(sql.CHECK_AUTOR_HAS_BOOKS, (autor_id,))
@@ -122,6 +130,91 @@ class AutoresManager(DatabaseManager):
             
         except Exception as e:
             self._set_status(f"Error al eliminar autor: {e}")
+    
+    def editar_autor(self, sender=None, app_data=None, user_data=None):
+        """Cargar datos del autor en el formulario para edición"""
+        autor_id = user_data if user_data is not None else app_data
+        print(f"🔍 Editando autor con ID: {autor_id} (tipo: {type(autor_id)})")
+        
+        try:
+            # Obtener datos del autor
+            autor = self.execute_query(sql.SELECT_AUTOR_BY_ID, (autor_id,))
+            
+            if not autor:
+                self._set_status(f"Error: Autor con ID '{autor_id}' no encontrado")
+                return
+            
+            autor = autor[0]
+            
+            # Cargar datos en los campos del formulario
+            dpg.set_value("input_autor_nombre", autor[1])
+            dpg.set_value("input_autor_apellido", autor[2])
+            dpg.set_value("input_autor_nacionalidad", autor[3] or "")
+            dpg.set_value("input_autor_fecha", autor[4] or "")
+            
+            # Cambiar el botón a modo edición
+            dpg.set_item_label("btn_agregar_autor", "Actualizar Autor")
+            dpg.set_item_callback("btn_agregar_autor", self.actualizar_autor)
+            
+            # Mostrar botón de cancelar
+            dpg.show_item("btn_cancelar_edicion_autor")
+            
+            # Guardar el ID que se está editando
+            self.autor_editando = autor_id
+            
+            self._set_status(f"Editando autor: {autor[1]} {autor[2]}")
+            
+        except Exception as e:
+            self._set_status(f"Error al cargar autor para edición: {e}")
+    
+    def actualizar_autor(self, sender=None, app_data=None):
+        """Actualizar un autor existente"""
+        nombre = dpg.get_value("input_autor_nombre")
+        apellido = dpg.get_value("input_autor_apellido")
+        nacionalidad = dpg.get_value("input_autor_nacionalidad")
+        fecha_nacimiento = dpg.get_value("input_autor_fecha")
+        
+        if not nombre or not apellido:
+            self._set_status("Error: Nombre y apellido son obligatorios")
+            return
+        
+        try:
+            rows_affected = self.execute_command(
+                sql.UPDATE_AUTOR, 
+                (nombre, apellido, nacionalidad, fecha_nacimiento, self.autor_editando)
+            )
+            
+            if rows_affected > 0:
+                # Limpiar campos y resetear a modo agregar
+                self._reset_formulario_autor()
+                
+                self._set_status(f"Autor '{nombre} {apellido}' actualizado exitosamente")
+                self.cargar_autores()
+                
+                # Notificar a otros módulos si es necesario
+                if hasattr(self, 'on_autor_added'):
+                    self.on_autor_added()
+            else:
+                self._set_status("Error al actualizar autor")
+                
+        except Exception as e:
+            self._set_status(f"Error al actualizar autor: {e}")
+    
+    def _reset_formulario_autor(self):
+        """Resetear el formulario a modo agregar"""
+        dpg.set_value("input_autor_nombre", "")
+        dpg.set_value("input_autor_apellido", "")
+        dpg.set_value("input_autor_nacionalidad", "")
+        dpg.set_value("input_autor_fecha", "")
+        
+        dpg.set_item_label("btn_agregar_autor", "Agregar Autor")
+        dpg.set_item_callback("btn_agregar_autor", self.agregar_autor)
+        
+        # Ocultar botón de cancelar
+        dpg.hide_item("btn_cancelar_edicion_autor")
+        
+        if hasattr(self, 'autor_editando'):
+            delattr(self, 'autor_editando')
     
     def obtener_autores_para_combo(self):
         """Obtener lista de autores para usar en combo boxes"""
@@ -181,7 +274,7 @@ class AutoresManager(DatabaseManager):
         dpg.add_separator(parent=parent_tab)
         
         # Botón de control
-        dpg.add_button(label="🔄 Recargar Autores", callback=self.cargar_autores, parent=parent_tab)
+        dpg.add_button(label="Recargar Autores", callback=self.cargar_autores, parent=parent_tab)
         dpg.add_separator(parent=parent_tab)
         
         # Formulario para agregar autores
@@ -192,14 +285,15 @@ class AutoresManager(DatabaseManager):
                 dpg.add_input_text(label="Apellido", tag="input_autor_apellido", width=200)
                 dpg.add_input_text(label="Nacionalidad", tag="input_autor_nacionalidad", width=200)
                 dpg.add_input_text(label="Fecha Nac. (YYYY-MM-DD)", tag="input_autor_fecha", width=200)
-                dpg.add_button(label="Agregar Autor", callback=self.agregar_autor)
+                dpg.add_button(label="Agregar Autor", tag="btn_agregar_autor", callback=self.agregar_autor)
+                dpg.add_button(label="Cancelar Edición", tag="btn_cancelar_edicion_autor", callback=self._reset_formulario_autor, show=False)
                 dpg.add_text("", tag="status_autores", color=(255, 255, 0))
             
             # Lista de autores
             with dpg.child_window():
                 dpg.add_text("Lista de Autores:")
                 with dpg.table(tag="table_autores"):
-                    dpg.add_table_column(label="ID")
+                    dpg.add_table_column(label="ID", width_fixed=True, init_width_or_weight=0)  # Columna oculta
                     dpg.add_table_column(label="Nombre")
                     dpg.add_table_column(label="Apellido")
                     dpg.add_table_column(label="Nacionalidad")

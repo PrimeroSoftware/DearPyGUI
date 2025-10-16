@@ -99,7 +99,8 @@ class PrestamosManager(DatabaseManager):
                         if not prestamo[4]:  # Si no hay fecha de devolución
                             dpg.add_button(
                                 label=f"Devolver##dev_prestamo_{prestamo[0]}", 
-                                callback=lambda s, a, id_p=prestamo[0], isbn_l=prestamo[1]: self.devolver_libro(id_p, isbn_l),
+                                callback=self.devolver_libro,
+                                user_data=(prestamo[0], prestamo[1]),
                                 width=80
                             )
                         else:
@@ -112,8 +113,20 @@ class PrestamosManager(DatabaseManager):
             print(f"❌ Error al cargar préstamos: {e}")
             self._set_status(f"Error: {e}")
     
-    def devolver_libro(self, id_prestamo, isbn_libro):
+    def devolver_libro(self, sender=None, app_data=None, user_data=None):
         """Registrar la devolución de un libro"""
+        # Manejar diferentes formas de llamar al método
+        if user_data is not None:
+            if isinstance(user_data, tuple):
+                id_prestamo, isbn_libro = user_data
+            else:
+                id_prestamo = user_data
+                isbn_libro = app_data
+        else:
+            # Llamada directa con parámetros (para compatibilidad)
+            id_prestamo = sender
+            isbn_libro = app_data
+        
         try:
             fecha_devolucion = datetime.now().strftime('%Y-%m-%d')
             
@@ -123,7 +136,14 @@ class PrestamosManager(DatabaseManager):
                 (fecha_devolucion, id_prestamo)
             )
             
-            if rows_affected > 0:
+            # En SQLite, rowcount puede ser -1 para UPDATE, así que verificamos de otra manera
+            # Verificar que la actualización fue exitosa consultando el registro
+            prestamo_actualizado = self.execute_query(
+                "SELECT fecha_devolucion FROM prestamos WHERE id = ?", 
+                (id_prestamo,)
+            )
+            
+            if prestamo_actualizado and prestamo_actualizado[0][0] == fecha_devolucion:
                 # Cambiar estado del libro a "Disponible"
                 self.libros_manager.cambiar_estado_libro(isbn_libro, "Disponible")
                 
@@ -205,20 +225,16 @@ class PrestamosManager(DatabaseManager):
             # Buscar préstamos por usuario
             prestamos = self.execute_query(sql.SEARCH_PRESTAMOS_BY_USER, (f'%{termino}%',))
             
-            # Limpiar tabla
-            dpg.delete_item("table_prestamos", children_only=True)
+            print(f"📊 Encontrados {len(prestamos)} préstamos para '{termino}'")
             
-            # Agregar encabezados
-            with dpg.table_row(parent="table_prestamos"):
-                dpg.add_text("ID")
-                dpg.add_text("ISBN")
-                dpg.add_text("Título")
-                dpg.add_text("Usuario")
-                dpg.add_text("Fecha Préstamo")
-                dpg.add_text("Fecha Devolución")
-                dpg.add_text("Acciones")
+            # Limpiar solo las filas de datos, preservando las columnas (igual que cargar_prestamos)
+            children = dpg.get_item_children("table_prestamos", slot=1)  # slot 1 contiene las filas
+            if children:
+                for child in children:
+                    if dpg.get_item_type(child) == "mvAppItemType::mvTableRow":
+                        dpg.delete_item(child)
             
-            # Agregar datos filtrados
+            # Agregar datos filtrados (sin encabezados, ya están definidos en las columnas)
             for prestamo in prestamos:
                 with dpg.table_row(parent="table_prestamos"):
                     dpg.add_text(str(prestamo[0]))  # id_prestamo
@@ -231,7 +247,8 @@ class PrestamosManager(DatabaseManager):
                         if not prestamo[4]:  # Si no hay fecha de devolución
                             dpg.add_button(
                                 label=f"Devolver##dev_prestamo_{prestamo[0]}", 
-                                callback=lambda s, a, id_p=prestamo[0], isbn_l=prestamo[1]: self.devolver_libro(id_p, isbn_l),
+                                callback=self.devolver_libro,
+                                user_data=(prestamo[0], prestamo[1]),
                                 width=80
                             )
                         else:
@@ -242,6 +259,58 @@ class PrestamosManager(DatabaseManager):
         except Exception as e:
             print(f"❌ Error al buscar préstamos: {e}")
             self._set_status(f"Error al buscar: {e}")
+    
+    def buscar_prestamos_por_titulo(self, sender=None, app_data=None):
+        """Buscar préstamos por título de libro"""
+        termino = dpg.get_value("input_buscar_titulo")
+        
+        if not termino:
+            self.cargar_prestamos()
+            return
+        
+        try:
+            # Verificar que la tabla existe
+            if not dpg.does_item_exist("table_prestamos"):
+                self._set_status("Error: Tabla no disponible")
+                return
+            
+            # Buscar préstamos por título
+            prestamos = self.execute_query(sql.SEARCH_PRESTAMOS_BY_TITLE, (f'%{termino}%',))
+            
+            print(f"📊 Encontrados {len(prestamos)} préstamos para el título '{termino}'")
+            
+            # Limpiar solo las filas de datos, preservando las columnas
+            children = dpg.get_item_children("table_prestamos", slot=1)  # slot 1 contiene las filas
+            if children:
+                for child in children:
+                    if dpg.get_item_type(child) == "mvAppItemType::mvTableRow":
+                        dpg.delete_item(child)
+            
+            # Agregar datos filtrados (sin encabezados, ya están definidos en las columnas)
+            for prestamo in prestamos:
+                with dpg.table_row(parent="table_prestamos"):
+                    dpg.add_text(str(prestamo[0]))  # id_prestamo
+                    dpg.add_text(prestamo[1])  # isbn_libro
+                    dpg.add_text(prestamo[6] or "Sin título")  # titulo
+                    dpg.add_text(prestamo[2])  # nombre_usuario
+                    dpg.add_text(prestamo[3] or "")  # fecha_prestamo
+                    dpg.add_text(prestamo[4] or "Pendiente")  # fecha_devolucion
+                    with dpg.group(horizontal=True):
+                        if not prestamo[4]:  # Si no hay fecha de devolución
+                            dpg.add_button(
+                                label=f"Devolver##dev_prestamo_{prestamo[0]}", 
+                                callback=self.devolver_libro,
+                                user_data=(prestamo[0], prestamo[1]),
+                                width=80
+                            )
+                        else:
+                            dpg.add_text("Devuelto", color=(0, 255, 0))
+            
+            self._set_status(f"Encontrados {len(prestamos)} préstamos para el título '{termino}'")
+            
+        except Exception as e:
+            print(f"❌ Error al buscar préstamos por título: {e}")
+            self._set_status(f"Error al buscar por título: {e}")
     
     # ================================
     # INTERFAZ DE USUARIO
@@ -254,8 +323,8 @@ class PrestamosManager(DatabaseManager):
         
         # Botones de control
         with dpg.group(horizontal=True, parent=parent_tab):
-            dpg.add_button(label="🔄 Recargar Préstamos", callback=self.cargar_prestamos)
-            dpg.add_button(label="📚 Ver Historial", callback=self._mostrar_historial)
+            dpg.add_button(label="Recargar Préstamos", callback=self.cargar_prestamos)
+            dpg.add_button(label="Ver Historial", callback=self._mostrar_historial)
         dpg.add_separator(parent=parent_tab)
         
         # Formulario para registrar préstamos
@@ -268,10 +337,11 @@ class PrestamosManager(DatabaseManager):
                 dpg.add_separator()
                 dpg.add_text("Buscar Préstamos:")
                 dpg.add_input_text(label="Usuario", tag="input_buscar_prestamos", width=200)
-                with dpg.group(horizontal=True):
-                    dpg.add_button(label="Buscar", callback=self.buscar_prestamos_por_usuario, width=80)
-                    dpg.add_button(label="Mostrar Todos", callback=self.cargar_prestamos, width=100)
+                dpg.add_button(label="Buscar Usuario", callback=self.buscar_prestamos_por_usuario, width=110)
+                dpg.add_input_text(label="Título del Libro", tag="input_buscar_titulo", width=200)
+                dpg.add_button(label="Buscar Título", callback=self.buscar_prestamos_por_titulo, width=110)
                 dpg.add_text("", tag="status_prestamos", color=(255, 255, 0))
+                dpg.add_button(label="Mostrar Todos", callback=self.cargar_prestamos, width=100)
             
             # Lista de préstamos activos
             with dpg.child_window():
@@ -297,7 +367,7 @@ class PrestamosManager(DatabaseManager):
                 dpg.add_text("Historial Completo de Préstamos", color=(0, 255, 255))
                 dpg.add_separator()
                 
-                dpg.add_button(label="🔄 Actualizar Historial", callback=self.cargar_historial_prestamos)
+                dpg.add_button(label="Actualizar Historial", callback=self.cargar_historial_prestamos)
                 dpg.add_separator()
                 
                 with dpg.table(tag="table_historial_prestamos"):
